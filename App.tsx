@@ -1,3 +1,6 @@
+import 'react-native-get-random-values'
+import './src/lib/dayjs'
+
 import { StatusBar } from 'expo-status-bar';
 import { ThemeProvider } from 'styled-components/native'
 import { useFonts, Roboto_400Regular, Roboto_700Bold } from '@expo-google-fonts/roboto'

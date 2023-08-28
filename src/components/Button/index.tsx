@@ -14,7 +14,7 @@ export function Button({ title, isLoading = false, ...rest }: Props) {
             {...rest}
         >
             {
-                isLoading ? <Load /> : <Title>Entrar com o Google</Title>
+                isLoading ? <Load /> : <Title>{title}</Title>
             }
         </Container>
     );
