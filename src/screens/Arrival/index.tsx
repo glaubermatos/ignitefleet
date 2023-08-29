@@ -10,13 +10,17 @@ import { ButtonIcon } from "../../components/ButtonIcon";
 import { useObject, useRealm } from "../../lib/realm";
 import { Historic } from "../../lib/realm/schemas/Historic";
 
-import { Container, Content, Description, Footer, Label, LicensePlate } from "./styles";
+import { Container, Content, Description, Footer, Label, LicensePlate, AsyncMessage } from "./styles";
+import { useEffect, useState } from "react";
+import { getLastAsyncTimestamp } from "../../lib/asyncStorage/syncStorage";
 
 type RouteParamsProps = {
     id: string
 }
 
 export function Arrival() {
+    const [dataNotSynced, setDataNotSynced] = useState(false)
+
     const route = useRoute()
     const { goBack } = useNavigation()
     const { id } = route.params as RouteParamsProps;
@@ -65,6 +69,11 @@ export function Arrival() {
         }
     }
 
+    useEffect(() => {
+        getLastAsyncTimestamp()
+            .then(lastSync => setDataNotSynced(historic!.updated_at.getTime() > lastSync))
+    }, [])
+
     return (
         <Container>
             <Header title={title} />
@@ -94,6 +103,14 @@ export function Arrival() {
                     <Button title="Registrar chegada" onPress={handleArrivalRegister} />
                 </Footer>
             }
+
+            {
+                dataNotSynced && 
+                <AsyncMessage>
+                    Sincronização da {historic?.status === 'departure' ? ' partida ' : ' chegada '} pendente
+                </AsyncMessage>
+            }
+
         </Container>
     );
 }

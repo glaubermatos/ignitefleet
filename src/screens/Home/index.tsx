@@ -2,6 +2,7 @@ import dayjs from 'dayjs';
 import Realm from "realm";
 import { useUser } from '@realm/react';
 import { useEffect, useState } from 'react';
+import Toast from 'react-native-toast-message';
 import { Alert, FlatList  } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 
@@ -16,10 +17,13 @@ import { CarStatus } from '../../components/CarStatus';
 import { HistoricCard, HistoryCardProps } from '../../components/HistoricCard';
 
 import { Container, Content, Label, Title } from "./styles";
+import { TopMessage } from '../../components/TopMessage';
+import { CloudArrowUp } from 'phosphor-react-native';
 
 export function Home() {
     const [vehicleHistoric, setVehicleHistoric] = useState<HistoryCardProps[]>([]);
     const [vehicleInUse, setVehicleInUse] = useState<Historic | null>();
+    const [percentageToSync, setPercentageToSync] = useState<string | null>(null);
 
     const realm = useRealm()
     const user = useUser()
@@ -72,6 +76,7 @@ export function Home() {
         navigate('arrival', { id })
     }
 
+    // calcula a porcentagem que falta para completar a sincronização dos dados com o banco de dados remoto
     async function progressNotification(transferred: number, transferable: number) {
         const percentage = (transferred/transferable) * 100;
 
@@ -79,6 +84,18 @@ export function Home() {
         if (percentage === 100) {
             await saveLastSyncTimestamp()
             await fetchHistoric()
+
+            setPercentageToSync(null)
+
+            Toast.show({
+                text1: "Sincronização de dados",
+                text2: "Todos os dados estão sincronizados.",
+                type: 'info',
+            })
+        }
+
+        if (percentage < 100) {
+            setPercentageToSync(`${percentage.toFixed(0)}% sincronizado.`)
         }
     }
 
@@ -130,6 +147,8 @@ export function Home() {
 
     return (
         <Container>
+            { percentageToSync && <TopMessage title={percentageToSync} icon={CloudArrowUp} /> }
+
             <HomeHeader />
 
             <Content>

@@ -49,3 +49,15 @@ export const Footer = styled.View`
     flex-direction: row;
 `;
 
+export const AsyncMessage = styled.Text`
+    ${({ theme }) => css`
+        color: ${theme.COLORS.GRAY_300};
+        font-size: ${theme.FONT_SIZE.SM}px;
+        font-family: ${theme.FONT_FAMILY.REGULAR};
+
+        text-align: center;
+        flex: 1;
+        margin: 32px;
+    `}
+`;
+
