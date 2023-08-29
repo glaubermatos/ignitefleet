@@ -1,23 +1,28 @@
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import dayjs from 'dayjs';
+import Realm from "realm";
+import { useUser } from '@realm/react';
+import { useEffect, useState } from 'react';
+import { Alert, FlatList  } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 
+import { useQuery, useRealm } from '../../lib/realm';
+
+import { Historic } from '../../lib/realm/schemas/Historic';
+
+import { getLastAsyncTimestamp, saveLastSyncTimestamp } from '../../lib/asyncStorage/syncStorage';
 
 import { HomeHeader } from "../../components/HomeHeader";
 import { CarStatus } from '../../components/CarStatus';
+import { HistoricCard, HistoryCardProps } from '../../components/HistoricCard';
 
 import { Container, Content, Label, Title } from "./styles";
-import { useNavigation } from '@react-navigation/native';
-import { useQuery, useRealm } from '../../lib/realm';
-import { Historic } from '../../lib/realm/schemas/Historic';
-import { useEffect, useState } from 'react';
-import { Alert, FlatList  } from 'react-native';
-import { HistoricCard, HistoryCardProps } from '../../components/HistoricCard';
-import dayjs from 'dayjs';
 
 export function Home() {
     const [vehicleHistoric, setVehicleHistoric] = useState<HistoryCardProps[]>([]);
     const [vehicleInUse, setVehicleInUse] = useState<Historic | null>();
 
     const realm = useRealm()
+    const user = useUser()
     const historic = useQuery(Historic);
 
     const { navigate } = useNavigation()
@@ -40,15 +45,17 @@ export function Home() {
         }
     }
 
-    function fetchHistoric() {
+    async function fetchHistoric() {
         try {
             const response = historic.filtered("status = 'arrival' SORT(created_at DESC)");
+
+            const lastSync = await getLastAsyncTimestamp()
 
             const formattedHistoric = response.map(item => {
                 return {
                     id: item._id!.toString(),
                     licensePlate: item.license_plate,
-                    isSync: false,
+                    isSync: lastSync > item.updated_at!.getTime(),
                     created: dayjs(item.created_at).format('[Saída em] DD/MM/YYYY [às] HH:mm')
                 }
             })
@@ -63,6 +70,16 @@ export function Home() {
 
     function handleHistoricDetails(id: string) {
         navigate('arrival', { id })
+    }
+
+    async function progressNotification(transferred: number, transferable: number) {
+        const percentage = (transferred/transferable) * 100;
+
+        //salva a data e horario da ultima sincronizção, a sincronizaão termina quando o percente atinge 100%
+        if (percentage === 100) {
+            await saveLastSyncTimestamp()
+            await fetchHistoric()
+        }
     }
 
     //carrega no momento que a interface for carregada
@@ -85,6 +102,32 @@ export function Home() {
         fetchHistoric()
     }, [historic])
 
+    //sincroniza com o atlasdb
+    useEffect(() => {
+        realm.subscriptions.update((mutableSubs, realm) => {
+            const historicByUserQuery = realm.objects('Historic').filtered(`user_id = '${user!.id}'`);
+
+            mutableSubs.add(historicByUserQuery, { name: 'historic_by_user'})
+        })
+    }, [realm])
+
+    //notificação de dados transferidos
+    useEffect(() => {
+        const syncSession = realm.syncSession;
+
+        if (!syncSession) {
+            return;
+        }
+
+        syncSession.addProgressNotification(
+            Realm.ProgressDirection.Upload,
+            Realm.ProgressMode.ReportIndefinitely,
+            progressNotification
+        )
+
+        return () => syncSession.removeProgressNotification(progressNotification)
+    }, [])
+
     return (
         <Container>
             <HomeHeader />
@@ -104,7 +147,7 @@ export function Home() {
                     keyExtractor={(item) => item.id}
                     renderItem={({ item }) => (
                         <HistoricCard
-                        onPress={() => handleHistoricDetails(item.id)}
+                            onPress={() => handleHistoricDetails(item.id)}
                             data={item}
                         />
                     )}
