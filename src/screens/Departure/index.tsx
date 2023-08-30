@@ -12,9 +12,15 @@ import { LicensePlateInput } from "../../components/LicensePlateInput";
 import { TextAreaInput } from "../../components/TextAreaInput";
 
 import { Container, Content, Message } from "./styles";
+
 import { licensePlateValidate } from "../../utils/licensePlateValidate";
+import { getAddressLocation } from "../../utils/getAddressLocation";
+
 import { useUser } from "@realm/react";
 import { useNavigation } from "@react-navigation/native";
+import { Loading } from "../../components/Loading";
+import { LocationInfo } from "../../components/LocationInfo";
+import { Car } from "phosphor-react-native";
 
 const keyboardAvoidingViewBehavior = Platform.OS === 'android' ? 'height' : 'position';
 
@@ -22,6 +28,8 @@ export function Departure() {
     const [description, setDescription] = useState('');
     const [licensePlate, setLicensePlate] = useState('');
     const [isRegistering, setIsREgistering] = useState(false)
+    const [isLoadingLocation, setIsLoadingLocation] = useState(true)
+    const [currentAddress, setCurrentAddress] = useState<string | null>(null)
 
     const [locationForegroundPermissions, requestLocationForegroundPermission] = useForegroundPermissions()
 
@@ -83,11 +91,24 @@ export function Departure() {
             accuracy: LocationAccuracy.High,
             timeInterval: 1000,
         }, (location) => {
-            console.log(location)
-        }).then((response) => subscription = response);
+            getAddressLocation(location.coords)
+                .then((address => {
+                    if (address) {
+                        setCurrentAddress(address)
+                    }
+                }))
+        })
+            .then((response) => subscription = response)
+            .finally(() => {
+                setIsLoadingLocation(false)
+            });
 
-        return () => subscription.remove()
-    }, [])
+        return () => {
+            if (subscription) {
+                subscription.remove()
+            }
+        }
+    }, [locationForegroundPermissions])
 
     if (!locationForegroundPermissions?.granted) {
         return (
@@ -102,6 +123,10 @@ export function Departure() {
         );
     }
 
+    if (isLoadingLocation) {
+        return <Loading />
+    }
+
     return (
         <Container>
             <Header title="Saída" />
@@ -110,6 +135,16 @@ export function Departure() {
             <KeyboardAwareScrollView extraHeight={100}>
                 <ScrollView>
                     <Content>
+                        {
+                            currentAddress && 
+                            <LocationInfo
+                                label="Locaização atual" 
+                                description={currentAddress}
+                                icon={Car}
+                            />
+                        }
+
+
                         <LicensePlateInput
                             ref={licensePlateRef}
                             onChangeText={setLicensePlate}
